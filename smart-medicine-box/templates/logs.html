@@ -1,0 +1,200 @@
+{% extends "base.html" %}
+{% block title %}سجل الأحداث - Smart Medicine Box{% endblock %}
+{% block page_title %}سجل الأحداث والإنذارات{% endblock %}
+
+{% block content %}
+
+<!-- ═══════════════════════════════════════════════════ -->
+<!--  شريط الفلتر والإجراءات                          -->
+<!-- ═══════════════════════════════════════════════════ -->
+<section class="section-block">
+  <div class="section-header">
+    <h2 class="section-title"><i class="fas fa-list-alt"></i> سجل الأحداث</h2>
+    <button class="btn btn-danger-outline" onclick="clearAllLogs()">
+      <i class="fas fa-trash"></i> مسح الكل
+    </button>
+  </div>
+
+  <!-- فلاتر النوع -->
+  <div class="filter-bar">
+    <span class="filter-label"><i class="fas fa-filter"></i> تصفية:</span>
+    <button class="filter-btn active" data-filter="all" onclick="filterLogs(this, 'all')">
+      الكل <span class="filter-count" id="count-all">{{ logs|length }}</span>
+    </button>
+    <button class="filter-btn filter-info" data-filter="info" onclick="filterLogs(this, 'info')">
+      <i class="fas fa-info-circle"></i> معلومات
+      <span class="filter-count" id="count-info">{{ logs|selectattr("type","equalto","info")|list|length }}</span>
+    </button>
+    <button class="filter-btn filter-success" data-filter="success" onclick="filterLogs(this, 'success')">
+      <i class="fas fa-check-circle"></i> نجاح
+      <span class="filter-count" id="count-success">{{ logs|selectattr("type","equalto","success")|list|length }}</span>
+    </button>
+    <button class="filter-btn filter-warning" data-filter="warning" onclick="filterLogs(this, 'warning')">
+      <i class="fas fa-exclamation-triangle"></i> تحذير
+      <span class="filter-count" id="count-warning">{{ logs|selectattr("type","equalto","warning")|list|length }}</span>
+    </button>
+    <button class="filter-btn filter-danger" data-filter="danger" onclick="filterLogs(this, 'danger')">
+      <i class="fas fa-times-circle"></i> إنذار
+      <span class="filter-count" id="count-danger">{{ logs|selectattr("type","equalto","danger")|list|length }}</span>
+    </button>
+  </div>
+</section>
+
+
+<!-- ═══════════════════════════════════════════════════ -->
+<!--  جدول السجلات                                    -->
+<!-- ═══════════════════════════════════════════════════ -->
+<section class="section-block">
+
+  {% if logs %}
+  <div class="table-responsive">
+    <table class="data-table logs-table" id="logsTable">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>النوع</th>
+          <th>التوقيت</th>
+          <th>الحدث</th>
+          <th>الحجرة</th>
+          <th>صورة</th>
+        </tr>
+      </thead>
+      <tbody id="logsTableBody">
+        {% for log in logs %}
+        <tr class="log-row" data-type="{{ log.type }}">
+          <td><span class="row-number">{{ log.id }}</span></td>
+
+          <td>
+            <span class="type-badge type-{{ log.type }}">
+              {% if log.type == 'info' %}
+                <i class="fas fa-info-circle"></i> معلومة
+              {% elif log.type == 'success' %}
+                <i class="fas fa-check-circle"></i> نجاح
+              {% elif log.type == 'warning' %}
+                <i class="fas fa-exclamation-triangle"></i> تحذير
+              {% elif log.type == 'danger' %}
+                <i class="fas fa-times-circle"></i> إنذار
+              {% else %}
+                <i class="fas fa-circle"></i> {{ log.type }}
+              {% endif %}
+            </span>
+          </td>
+
+          <td>
+            <span class="timestamp-text">
+              <i class="fas fa-clock"></i>
+              {{ log.timestamp }}
+            </span>
+          </td>
+
+          <td>
+            <span class="event-text">{{ log.event }}</span>
+          </td>
+
+          <td>
+            {% if log.chamber != '-' %}
+              <span class="chamber-badge">الحجرة {{ log.chamber }}</span>
+            {% else %}
+              <span class="no-chamber">—</span>
+            {% endif %}
+          </td>
+
+          <td>
+            {% if log.photo %}
+              <a href="{{ log.photo }}" target="_blank" class="log-photo-thumb-wrap" title="عرض صورة التأكيد">
+                <img src="{{ log.photo }}" alt="تأكيد" class="log-photo-thumb"/>
+                <i class="fas fa-search-plus log-photo-icon"></i>
+              </a>
+            {% else %}
+              <span class="no-chamber">—</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ─── إحصاءات سريعة ─── -->
+  <div class="logs-stats-row">
+    <div class="log-stat-card stat-info">
+      <i class="fas fa-info-circle"></i>
+      <div>
+        <strong id="s-info">{{ logs|selectattr("type","equalto","info")|list|length }}</strong>
+        <span>معلومات</span>
+      </div>
+    </div>
+    <div class="log-stat-card stat-success">
+      <i class="fas fa-check-circle"></i>
+      <div>
+        <strong id="s-success">{{ logs|selectattr("type","equalto","success")|list|length }}</strong>
+        <span>نجاح</span>
+      </div>
+    </div>
+    <div class="log-stat-card stat-warning">
+      <i class="fas fa-exclamation-triangle"></i>
+      <div>
+        <strong id="s-warning">{{ logs|selectattr("type","equalto","warning")|list|length }}</strong>
+        <span>تحذيرات</span>
+      </div>
+    </div>
+    <div class="log-stat-card stat-danger">
+      <i class="fas fa-times-circle"></i>
+      <div>
+        <strong id="s-danger">{{ logs|selectattr("type","equalto","danger")|list|length }}</strong>
+        <span>إنذارات</span>
+      </div>
+    </div>
+  </div>
+
+  {% else %}
+  <div class="empty-state">
+    <i class="fas fa-clipboard-list empty-icon"></i>
+    <p>لا توجد سجلات أحداث بعد.</p>
+  </div>
+  {% endif %}
+
+</section>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  // ──────────────────────────────
+  //  تصفية السجلات بالنوع
+  // ──────────────────────────────
+  function filterLogs(btn, type) {
+    // تحديث الأزرار
+    document.querySelectorAll(".filter-btn").forEach(b => b.classList.remove("active"));
+    btn.classList.add("active");
+
+    // تصفية الصفوف
+    const rows = document.querySelectorAll(".log-row");
+    rows.forEach(row => {
+      if (type === "all" || row.dataset.type === type) {
+        row.style.display = "";
+      } else {
+        row.style.display = "none";
+      }
+    });
+  }
+
+  // ──────────────────────────────
+  //  مسح جميع السجلات
+  // ──────────────────────────────
+  function clearAllLogs() {
+    if (!confirm("هل أنت متأكد من مسح جميع السجلات؟ لا يمكن التراجع عن هذا الإجراء.")) return;
+    fetch("/api/logs/clear", { method: "POST" })
+      .then(r => r.json())
+      .then(data => {
+        if (data.status === "ok") {
+          showToast("تم مسح جميع السجلات بنجاح.", "success");
+          setTimeout(() => location.reload(), 900);
+        } else {
+          showToast("حدث خطأ أثناء المسح.", "danger");
+        }
+      })
+      .catch(() => showToast("تعذّر الاتصال بالخادم.", "danger"));
+  }
+</script>
+{% endblock %}

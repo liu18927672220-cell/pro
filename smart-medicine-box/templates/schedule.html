@@ -1,0 +1,290 @@
+{% extends "base.html" %}
+{% block title %}جدول المواعيد - Smart Medicine Box{% endblock %}
+{% block page_title %}جدول المواعيد والأدوية{% endblock %}
+
+{% block content %}
+
+<!-- ═══════════════════════════════════════════════════ -->
+<!--  رأس الصفحة مع زر الإضافة                        -->
+<!-- ═══════════════════════════════════════════════════ -->
+<section class="section-block">
+  <div class="section-header">
+    <h2 class="section-title"><i class="fas fa-calendar-alt"></i> الجدول الحالي</h2>
+    <button class="btn btn-primary" onclick="openAddModal()">
+      <i class="fas fa-plus"></i> إضافة دواء جديد
+    </button>
+  </div>
+
+  <!-- ─────────────────────────────── -->
+  <!--  جدول الأدوية                  -->
+  <!-- ─────────────────────────────── -->
+  {% if schedule %}
+  <div class="table-responsive">
+    <table class="data-table" id="scheduleTable">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>اسم الدواء</th>
+          <th>الحجرة</th>
+          <th>الجرعة</th>
+          <th>أوقات الجرعات</th>
+          <th>أيام الأسبوع</th>
+          <th>ملاحظات</th>
+          <th>إجراءات</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for entry in schedule %}
+        <tr id="row-{{ entry.id }}">
+          <td><span class="row-number">{{ loop.index }}</span></td>
+
+          <td>
+            <div class="medicine-cell">
+              <div class="medicine-dot chamber-color-{{ entry.chamber }}"></div>
+              <strong>{{ entry.medicine }}</strong>
+            </div>
+          </td>
+
+          <td>
+            <span class="chamber-badge">الحجرة {{ entry.chamber }}</span>
+          </td>
+
+          <td><span class="dose-text">{{ entry.dose }}</span></td>
+
+          <td>
+            <div class="times-list">
+              {% for t in entry.times %}
+              <span class="time-chip"><i class="fas fa-clock"></i> {{ t }}</span>
+              {% endfor %}
+            </div>
+          </td>
+
+          <td>
+            <div class="days-list">
+              {% for d in entry.days %}
+              <span class="day-chip">{{ d }}</span>
+              {% endfor %}
+            </div>
+          </td>
+
+          <td>
+            <span class="notes-text">{{ entry.notes if entry.notes else '—' }}</span>
+          </td>
+
+          <td>
+            <button class="btn-icon btn-delete" onclick="deleteSchedule({{ entry.id }})" title="حذف">
+              <i class="fas fa-trash-alt"></i>
+            </button>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  {% else %}
+  <div class="empty-state">
+    <i class="fas fa-calendar-times empty-icon"></i>
+    <p>لا يوجد أي جدول مواعيد حالياً.</p>
+    <button class="btn btn-primary" onclick="openAddModal()">
+      <i class="fas fa-plus"></i> إضافة أول دواء
+    </button>
+  </div>
+  {% endif %}
+
+</section>
+
+
+<!-- ═══════════════════════════════════════════════════ -->
+<!--  بطاقات ملخص الجدول اليومي                       -->
+<!-- ═══════════════════════════════════════════════════ -->
+<section class="section-block">
+  <div class="section-header">
+    <h2 class="section-title"><i class="fas fa-sun"></i> جدول اليوم</h2>
+  </div>
+
+  <div class="daily-timeline">
+    {% set all_times = [] %}
+    {% for entry in schedule %}
+      {% for t in entry.times %}
+        {% set _ = all_times.append({"time": t, "medicine": entry.medicine, "dose": entry.dose, "chamber": entry.chamber}) %}
+      {% endfor %}
+    {% endfor %}
+    {% set sorted_times = all_times | sort(attribute='time') %}
+
+    {% if sorted_times %}
+      {% for item in sorted_times %}
+      <div class="timeline-item">
+        <div class="timeline-time">
+          <i class="fas fa-clock"></i>
+          {{ item.time }}
+        </div>
+        <div class="timeline-connector">
+          <div class="timeline-dot chamber-color-{{ item.chamber }}"></div>
+          <div class="timeline-line"></div>
+        </div>
+        <div class="timeline-content">
+          <strong>{{ item.medicine }}</strong>
+          <span class="timeline-dose">{{ item.dose }}</span>
+          <span class="chamber-badge-sm">الحجرة {{ item.chamber }}</span>
+        </div>
+      </div>
+      {% endfor %}
+    {% else %}
+      <p class="no-data">لا توجد جرعات مجدولة.</p>
+    {% endif %}
+  </div>
+</section>
+
+
+<!-- ═══════════════════════════════════════════════════ -->
+<!--  نافذة إضافة دواء جديد (Modal)                   -->
+<!-- ═══════════════════════════════════════════════════ -->
+<div class="modal-overlay" id="addModal">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h3><i class="fas fa-plus-circle"></i> إضافة دواء جديد</h3>
+      <button class="modal-close" onclick="closeAddModal()">
+        <i class="fas fa-times"></i>
+      </button>
+    </div>
+
+    <div class="modal-body">
+      <form id="addScheduleForm" onsubmit="submitNewSchedule(event)">
+
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label"><i class="fas fa-pills"></i> اسم الدواء</label>
+            <input type="text" class="form-control" id="f-medicine" placeholder="مثال: باراسيتامول 500mg" required />
+          </div>
+          <div class="form-group">
+            <label class="form-label"><i class="fas fa-box"></i> رقم الحجرة</label>
+            <select class="form-control" id="f-chamber" required>
+              <option value="">اختر الحجرة</option>
+              <option value="1">الحجرة 1</option>
+              <option value="2">الحجرة 2</option>
+              <option value="3">الحجرة 3</option>
+              <option value="4">الحجرة 4</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label"><i class="fas fa-prescription-bottle"></i> الجرعة</label>
+            <input type="text" class="form-control" id="f-dose" placeholder="مثال: حبة واحدة" required />
+          </div>
+          <div class="form-group">
+            <label class="form-label"><i class="fas fa-clock"></i> أوقات الجرعة</label>
+            <input type="text" class="form-control" id="f-times"
+                   placeholder="مثال: 08:00, 14:00, 20:00" required />
+            <small class="form-hint">افصل بين الأوقات بفاصلة</small>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label"><i class="fas fa-calendar-week"></i> أيام الأسبوع</label>
+          <div class="days-checkboxes">
+            {% for day in ["السبت","الأحد","الاثنين","الثلاثاء","الأربعاء","الخميس","الجمعة"] %}
+            <label class="checkbox-label">
+              <input type="checkbox" class="day-checkbox" value="{{ day }}" checked />
+              <span>{{ day }}</span>
+            </label>
+            {% endfor %}
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label"><i class="fas fa-sticky-note"></i> ملاحظات (اختياري)</label>
+          <textarea class="form-control" id="f-notes" rows="2" placeholder="مثال: بعد الأكل"></textarea>
+        </div>
+
+        <div class="modal-actions">
+          <button type="button" class="btn btn-outline" onclick="closeAddModal()">إلغاء</button>
+          <button type="submit" class="btn btn-primary">
+            <i class="fas fa-save"></i> حفظ
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  // ──────────────────────────────
+  //  التحكم في النافذة المنبثقة
+  // ──────────────────────────────
+  function openAddModal() {
+    document.getElementById("addModal").classList.add("active");
+  }
+  function closeAddModal() {
+    document.getElementById("addModal").classList.remove("active");
+    document.getElementById("addScheduleForm").reset();
+  }
+
+  // ──────────────────────────────
+  //  إرسال بيانات الدواء الجديد
+  // ──────────────────────────────
+  function submitNewSchedule(e) {
+    e.preventDefault();
+
+    const medicine = document.getElementById("f-medicine").value.trim();
+    const chamber  = document.getElementById("f-chamber").value;
+    const dose     = document.getElementById("f-dose").value.trim();
+    const timesRaw = document.getElementById("f-times").value;
+    const notes    = document.getElementById("f-notes").value.trim();
+
+    const times = timesRaw.split(",").map(t => t.trim()).filter(t => t.length > 0);
+    const days  = [...document.querySelectorAll(".day-checkbox:checked")].map(cb => cb.value);
+
+    if (!medicine || !chamber || !dose || times.length === 0 || days.length === 0) {
+      showToast("يرجى تعبئة جميع الحقول المطلوبة.", "danger");
+      return;
+    }
+
+    fetch("/api/schedule/add", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ medicine, chamber, dose, times, days, notes })
+    })
+    .then(r => r.json())
+    .then(data => {
+      if (data.status === "ok") {
+        showToast(`تمت إضافة ${medicine} بنجاح!`, "success");
+        closeAddModal();
+        setTimeout(() => location.reload(), 800);
+      } else {
+        showToast(data.message || "حدث خطأ.", "danger");
+      }
+    })
+    .catch(() => showToast("تعذّر الاتصال بالخادم.", "danger"));
+  }
+
+  // ──────────────────────────────
+  //  حذف موعد
+  // ──────────────────────────────
+  function deleteSchedule(id) {
+    if (!confirm("هل أنت متأكد من حذف هذا الدواء من الجدول؟")) return;
+    fetch(`/api/schedule/delete/${id}`, { method: "DELETE" })
+      .then(r => r.json())
+      .then(data => {
+        if (data.status === "ok") {
+          const row = document.getElementById(`row-${id}`);
+          if (row) {
+            row.style.opacity = "0";
+            row.style.transform = "translateX(-30px)";
+            row.style.transition = "all 0.3s ease";
+            setTimeout(() => row.remove(), 300);
+          }
+          showToast("تم حذف الدواء من الجدول.", "warning");
+        } else {
+          showToast(data.message || "حدث خطأ.", "danger");
+        }
+      })
+      .catch(() => showToast("تعذّر الاتصال بالخادم.", "danger"));
+  }
+</script>
+{% endblock %}

@@ -1,0 +1,22 @@
+{
+  "name": "علبة الدواء الذكية - Smart Medicine Box",
+  "short_name": "MedBox",
+  "description": "تطبيق إدارة علبة الدواء الذكية مع التنبيهات والاهتزاز وتأكيد الجرعة بالصورة",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0d1117",
+  "theme_color": "#0ea5e9",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/2965/2965879.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/2965/2965879.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

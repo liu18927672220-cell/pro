@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% block title %}صور التأكيد - Smart Medicine Box{% endblock %}
+{% block page_title %}سجل صور التأكيد{% endblock %}
+
+{% block content %}
+
+<section class="section-block">
+  <div class="section-header">
+    <h2 class="section-title"><i class="fas fa-camera"></i> صور تأكيد أخذ الدواء</h2>
+    <span class="badge-count">{{ records|length }} تأكيد</span>
+  </div>
+
+  {% if records %}
+  <div class="confirmations-grid">
+    {% for rec in records %}
+    <div class="confirm-card">
+      <div class="confirm-photo-wrap">
+        <img src="{{ rec.photo_url }}" alt="تأكيد الحجرة {{ rec.chamber }}"
+             class="confirm-photo" onclick="openPhotoViewer('{{ rec.photo_url }}', '{{ rec.medicine }}', '{{ rec.timestamp }}')"/>
+        <div class="confirm-photo-overlay">
+          <i class="fas fa-search-plus"></i>
+        </div>
+      </div>
+      <div class="confirm-info">
+        <div class="confirm-badge chamber-color-{{ rec.chamber }}">الحجرة {{ rec.chamber }}</div>
+        <p class="confirm-medicine"><i class="fas fa-pills"></i> {{ rec.medicine }}</p>
+        <p class="confirm-time"><i class="fas fa-clock"></i> {{ rec.timestamp }}</p>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+
+  {% else %}
+  <div class="empty-state">
+    <i class="fas fa-camera empty-icon"></i>
+    <p>لا توجد صور تأكيد بعد.</p>
+    <small>ستظهر هنا صور التأكيد عند أخذ الأدوية.</small>
+  </div>
+  {% endif %}
+</section>
+
+<!-- عارض الصورة الكاملة -->
+<div class="photo-viewer-overlay" id="photoViewer" onclick="closePhotoViewer()">
+  <div class="photo-viewer-box" onclick="event.stopPropagation()">
+    <button class="photo-viewer-close" onclick="closePhotoViewer()"><i class="fas fa-times"></i></button>
+    <img id="viewerImg" src="" alt="" class="viewer-full-img"/>
+    <div class="viewer-info">
+      <p id="viewerMedicine"></p>
+      <p id="viewerTime"></p>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  function openPhotoViewer(url, medicine, time) {
+    document.getElementById("viewerImg").src      = url;
+    document.getElementById("viewerMedicine").textContent = medicine;
+    document.getElementById("viewerTime").textContent     = time;
+    document.getElementById("photoViewer").classList.add("active");
+  }
+  function closePhotoViewer() {
+    document.getElementById("photoViewer").classList.remove("active");
+  }
+  document.addEventListener("keydown", e => { if (e.key === "Escape") closePhotoViewer(); });
+</script>
+{% endblock %}

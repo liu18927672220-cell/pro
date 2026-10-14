@@ -1,0 +1,332 @@
+{% extends "base.html" %}
+{% block title %}لوحة القيادة - Smart Medicine Box{% endblock %}
+{% block page_title %}لوحة القيادة{% endblock %}
+
+{% block content %}
+
+<!-- ═══════════════════════════════════════════════════ -->
+<!--  بطاقات الحالة العلوية (Status Cards)             -->
+<!-- ═══════════════════════════════════════════════════ -->
+<section class="stats-grid">
+
+  <!-- حالة الاتصال -->
+  <div class="stat-card {% if state.connected %}card-success{% else %}card-danger{% endif %}">
+    <div class="stat-icon">
+      <i class="fas {% if state.connected %}fa-link{% else %}fa-unlink{% endif %}"></i>
+    </div>
+    <div class="stat-info">
+      <p class="stat-label">حالة الاتصال</p>
+      <p class="stat-value">{% if state.connected %}متصل{% else %}غير متصل{% endif %}</p>
+      <p class="stat-sub">آخر تحديث: {{ state.last_seen }}</p>
+    </div>
+  </div>
+
+  <!-- البطارية -->
+  <div class="stat-card {% if state.battery > 40 %}card-info{% elif state.battery > 20 %}card-warning{% else %}card-danger{% endif %}">
+    <div class="stat-icon">
+      {% if state.battery > 75 %}
+        <i class="fas fa-battery-full"></i>
+      {% elif state.battery > 50 %}
+        <i class="fas fa-battery-three-quarters"></i>
+      {% elif state.battery > 25 %}
+        <i class="fas fa-battery-half"></i>
+      {% else %}
+        <i class="fas fa-battery-quarter"></i>
+      {% endif %}
+    </div>
+    <div class="stat-info">
+      <p class="stat-label">البطارية</p>
+      <p class="stat-value">{{ state.battery }}%</p>
+      <div class="battery-bar-wrap">
+        <div class="battery-bar" style="width: {{ state.battery }}%;"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- إشارة الواي فاي -->
+  <div class="stat-card card-info">
+    <div class="stat-icon">
+      <i class="fas fa-wifi"></i>
+    </div>
+    <div class="stat-info">
+      <p class="stat-label">إشارة Wi-Fi</p>
+      <p class="stat-value">{{ state.wifi_signal }} dBm</p>
+      <p class="stat-sub">
+        {% if state.wifi_signal >= -50 %}ممتازة
+        {% elif state.wifi_signal >= -65 %}جيدة
+        {% elif state.wifi_signal >= -75 %}متوسطة
+        {% else %}ضعيفة{% endif %}
+      </p>
+    </div>
+  </div>
+
+  <!-- إجمالي الحجرات النشطة -->
+  <div class="stat-card card-purple">
+    <div class="stat-icon">
+      <i class="fas fa-boxes"></i>
+    </div>
+    <div class="stat-info">
+      <p class="stat-label">حجرات الأدوية</p>
+      <p class="stat-value">{{ state.chambers | length }}</p>
+      <p class="stat-sub">حجرة مُدارة</p>
+    </div>
+  </div>
+
+  <!-- الجرعة القادمة -->
+  <div class="stat-card card-warning" id="next-dose-card" style="grid-column: span 2;">
+    <div class="stat-icon">
+      <i class="fas fa-clock"></i>
+    </div>
+    <div class="stat-info">
+      <p class="stat-label">الجرعة القادمة اليوم</p>
+      <p class="stat-value" id="next-dose-time">جاري التحميل...</p>
+      <p class="stat-sub" id="next-dose-name">—</p>
+    </div>
+    <div class="stat-info" style="margin-right: auto;">
+      <p class="stat-label">الحالة التلقائية</p>
+      <p class="stat-sub" style="color: var(--accent-green); font-weight:700;">
+        <i class="fas fa-robot"></i> الجدولي نشط
+      </p>
+    </div>
+  </div>
+
+</section>
+
+<!-- ═══════════════════════════════════════════════════ -->
+<!--  شريط تنبيه نظام الجوال (الإنذار والاهتزاز)       -->
+<!-- ═══════════════════════════════════════════════════ -->
+<section class="mobile-alarm-banner">
+  <div class="banner-icon pulse-alarm">
+    <i class="fas fa-mobile-alt"></i>
+    <i class="fas fa-volume-up banner-sub-icon"></i>
+  </div>
+  <div class="banner-text">
+    <h3>نظام إنذار الجوال واهتزاز الدواء</h3>
+    <p>عند قدوم موعد أي جرعة، يُصدر التطبيق صفارة إنذار عالية واهتزازاً متواصلاً، ويُجبر المريض على التقاط صورة للدواء لإيقاف الصوت.</p>
+  </div>
+  <div class="banner-action">
+    <button class="btn btn-alarm-trigger" onclick="triggerTestAlarmNow()">
+      <i class="fas fa-bell"></i> تجربة الإنذار والاهتزاز الفوري
+    </button>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════ -->
+<!--  بطاقات الحجرات (Chamber Cards)                  -->
+<!-- ═══════════════════════════════════════════════════ -->
+<section class="section-block">
+  <div class="section-header">
+    <h2 class="section-title"><i class="fas fa-capsules"></i> حجرات الأدوية</h2>
+    <p class="section-subtitle">اضغط على زر الفتح لفتح الحجرة يدوياً أو تأكيد أخذ الدواء بالصورة</p>
+  </div>
+
+  <div class="chambers-grid">
+    {% for ch_id, chamber in state.chambers.items() %}
+    <div class="chamber-card {% if chamber.status == 'open' %}chamber-open{% else %}chamber-closed{% endif %}" id="chamber-card-{{ ch_id }}">
+
+      <div class="chamber-header">
+        <div class="chamber-number">
+          <span>{{ ch_id }}</span>
+        </div>
+        <div class="chamber-status-badge" id="status-badge-{{ ch_id }}">
+          <i class="fas {% if chamber.status == 'open' %}fa-lock-open{% else %}fa-lock{% endif %}"></i>
+          {{ "مفتوحة" if chamber.status == "open" else "مغلقة" }}
+        </div>
+      </div>
+
+      <div class="chamber-body">
+        <h3 class="chamber-medicine-name">{{ chamber.name }}</h3>
+        <div class="chamber-pills-info">
+          <i class="fas fa-pills"></i>
+          <span>الكميّة المتبقية: <strong>{{ chamber.pills_left }}</strong> حبة</span>
+        </div>
+
+        <!-- شريط الكمية المتبقية -->
+        {% set pills_pct = (chamber.pills_left / 30 * 100) | int %}
+        <div class="pills-bar-wrap">
+          <div class="pills-bar {% if pills_pct < 30 %}bar-low{% elif pills_pct < 60 %}bar-mid{% else %}bar-full{% endif %}"
+               style="width: {{ [pills_pct, 100] | min }}%;">
+          </div>
+        </div>
+        {% if chamber.pills_left <= 5 %}
+        <p class="pills-warning"><i class="fas fa-exclamation-triangle"></i> تحذير: الحجرة على وشك النفاد!</p>
+        {% endif %}
+      </div>
+
+      <div class="chamber-footer">
+        <button
+          class="btn btn-toggle"
+          id="btn-{{ ch_id }}"
+          onclick="toggleChamber('{{ ch_id }}')"
+          data-chamber="{{ ch_id }}"
+          data-status="{{ chamber.status }}">
+          {% if chamber.status == "open" %}
+            <i class="fas fa-lock"></i> إغلاق الحجرة
+          {% else %}
+            <i class="fas fa-lock-open"></i> فتح الحجرة
+          {% endif %}
+        </button>
+        <button
+          class="btn btn-taken {% if chamber.status != 'open' %}btn-taken-disabled{% endif %}"
+          id="btn-taken-{{ ch_id }}"
+          onclick="markTaken('{{ ch_id }}')"
+          {% if chamber.status != 'open' %}disabled{% endif %}>
+          <i class="fas fa-check-double"></i> أخذت الدواء ✓
+        </button>
+      </div>
+
+    </div>
+    {% endfor %}
+  </div>
+</section>
+
+
+<!-- ═══════════════════════════════════════════════════ -->
+<!--  آخر الأحداث السريعة (Recent Activity)           -->
+<!-- ═══════════════════════════════════════════════════ -->
+<section class="section-block">
+  <div class="section-header">
+    <h2 class="section-title"><i class="fas fa-history"></i> آخر الأحداث</h2>
+    <a href="{{ url_for('logs') }}" class="btn btn-outline-sm">عرض الكل</a>
+  </div>
+  <div class="recent-logs" id="recent-logs-container">
+    <p class="loading-text"><i class="fas fa-spinner fa-spin"></i> جاري التحميل...</p>
+  </div>
+</section>
+
+{% endblock %}
+
+<!-- ═══════════════════════════════════════════════════ -->
+<!--  نافذة الكاميرا - تأكيد أخذ الدواء             -->
+<!-- ═══════════════════════════════════════════════════ -->
+<div class="camera-modal-overlay" id="cameraModal">
+  <div class="camera-modal-box">
+
+    <!-- رأس النافذة -->
+    <div class="camera-modal-header">
+      <h3><i class="fas fa-camera-retro"></i> تأكيد أخذ الدواء بالكاميرا</h3>
+      <button class="modal-close" onclick="closeCameraModal()"><i class="fas fa-times"></i></button>
+    </div>
+
+    <!-- معلومات الدواء -->
+    <div class="camera-medicine-info">
+      <i class="fas fa-pills"></i>
+      <div>
+        <strong id="cam-medicine-name">—</strong>
+        <span id="cam-chamber-label">—</span>
+      </div>
+    </div>
+
+    <div class="camera-body">
+
+      <!-- منطقة الفيديو / الصورة -->
+      <div class="camera-video-wrap" id="cameraVideoWrap">
+        <!-- الفيديو الحي -->
+        <video id="cameraVideo" autoplay playsinline></video>
+        <!-- خط المسح -->
+        <div class="camera-scan-line" id="scanLine"></div>
+        <!-- شارة "تم التقاط الصورة" -->
+        <div class="captured-badge" id="capturedBadge">
+          <i class="fas fa-check-circle"></i> تم التقاط الصورة
+        </div>
+      </div>
+
+      <!-- Canvas مخفي للتقاط الإطار -->
+      <canvas id="capturedCanvas" style="display:none;width:100%;border-radius:8px;margin-top:10px;"></canvas>
+
+      <!-- أزرار الكاميرا -->
+      <div class="camera-controls">
+        <button class="btn-capture" id="btnCapture" onclick="capturePhoto()">
+          <i class="fas fa-camera"></i> التقاط صورة
+        </button>
+        <button class="btn-retake" id="btnRetake" onclick="retakePhoto()">
+          <i class="fas fa-redo"></i> إعادة
+        </button>
+      </div>
+
+      <!-- تعليمات -->
+      <p style="font-size:12px;color:var(--text-muted);margin-top:10px;text-align:center;">
+        <i class="fas fa-info-circle"></i>
+        انظر إلى الكاميرا وأمسك الدواء ثم اضغط "التقاط صورة"، بعدها اضغط "تأكيد وتسجيل"
+      </p>
+    </div>
+
+    <!-- أزرار التأكيد النهائي -->
+    <div class="camera-footer">
+      <button class="btn-cancel-camera" onclick="closeCameraModal()">
+        <i class="fas fa-times"></i> إلغاء
+      </button>
+      <button class="btn-confirm-send" id="btnConfirmSend" onclick="sendConfirmation()">
+        <i class="fas fa-check-double"></i> تأكيد وتسجيل
+      </button>
+    </div>
+  </div>
+</div>
+
+{% block extra_js %}
+<script>
+  document.addEventListener("DOMContentLoaded", function () {
+    fetchRecentLogs();
+    fetchNextDose();
+    setInterval(fetchRecentLogs, 25000);
+    setInterval(fetchNextDose, 50000);
+  });
+
+  function fetchNextDose() {
+    fetch("/api/next-dose")
+      .then(r => r.json())
+      .then(data => {
+        const timeEl = document.getElementById("next-dose-time");
+        const nameEl = document.getElementById("next-dose-name");
+        if (!timeEl || !nameEl) return;
+        if (data.next_dose) {
+          timeEl.textContent = data.next_dose.time;
+          nameEl.textContent = data.next_dose.medicine + " — " + data.next_dose.dose + " (الحجرة " + data.next_dose.chamber + ")";
+        } else {
+          timeEl.textContent = "لا توجد جرعات اليوم";
+          nameEl.textContent = "—";
+        }
+      })
+      .catch(() => {});
+  }
+
+  function fetchRecentLogs() {
+    fetch("/api/logs?limit=5")
+      .then(r => r.json())
+      .then(data => {
+        const container = document.getElementById("recent-logs-container");
+        if (!container) return;
+        if (!data.logs || data.logs.length === 0) {
+          container.innerHTML = '<p class="no-data">لا توجد أحداث بعد.</p>';
+          return;
+        }
+        let html = '<ul class="log-list">';
+        data.logs.forEach(log => {
+          const photoThumb = log.photo
+            ? `<a href="${log.photo}" target="_blank"><img src="${log.photo}" style="width:28px;height:21px;object-fit:cover;border-radius:3px;border:1px solid var(--success-border);margin-right:6px;vertical-align:middle;"/></a>`
+            : '';
+          html += `
+            <li class="log-item log-${log.type}">
+              <span class="log-icon"><i class="fas ${getLogIcon(log.type)}"></i></span>
+              <span class="log-event">${log.event}</span>
+              ${photoThumb}
+              <span class="log-time">${log.timestamp}</span>
+            </li>`;
+        });
+        html += '</ul>';
+        container.innerHTML = html;
+      })
+      .catch(() => {
+        const container = document.getElementById("recent-logs-container");
+        if (container) {
+          container.innerHTML = '<p class="error-text"><i class="fas fa-exclamation-circle"></i> تعذّر تحميل السجلات.</p>';
+        }
+      });
+  }
+
+  function getLogIcon(type) {
+    const icons = { info: "fa-info-circle", success: "fa-check-circle", warning: "fa-exclamation-triangle", danger: "fa-times-circle" };
+    return icons[type] || "fa-circle";
+  }
+</script>
+{% endblock %}

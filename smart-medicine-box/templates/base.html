@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>{% block title %}Smart Medicine Box{% endblock %}</title>
+
+  <!-- PWA & Mobile Web App Meta Tags -->
+  <link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}" />
+  <meta name="theme-color" content="#0ea5e9" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="MedBox" />
+
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
+  <!-- Font Awesome for icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+  <!-- Google Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;900&display=swap" rel="stylesheet" />
+</head>
+<body>
+
+  <!-- ═══════════════════════════════════════════ -->
+  <!--  الشريط الجانبي (Sidebar Navigation)       -->
+  <!-- ═══════════════════════════════════════════ -->
+  <aside class="sidebar">
+    <div class="sidebar-brand">
+      <div class="brand-icon">
+        <i class="fas fa-pills"></i>
+      </div>
+      <div class="brand-text">
+        <span class="brand-name">MedBox</span>
+        <span class="brand-sub">Smart Medicine Box</span>
+      </div>
+    </div>
+
+    <nav class="sidebar-nav">
+      <ul>
+        <li>
+          <a href="{{ url_for('index') }}" class="nav-link {% if request.endpoint == 'index' %}active{% endif %}">
+            <i class="fas fa-tachometer-alt"></i>
+            <span>لوحة القيادة</span>
+          </a>
+        </li>
+        <li>
+          <a href="{{ url_for('schedule') }}" class="nav-link {% if request.endpoint == 'schedule' %}active{% endif %}">
+            <i class="fas fa-calendar-alt"></i>
+            <span>جدول المواعيد</span>
+          </a>
+        </li>
+        <li>
+          <a href="{{ url_for('logs') }}" class="nav-link {% if request.endpoint == 'logs' %}active{% endif %}">
+            <i class="fas fa-list-alt"></i>
+            <span>سجل الأحداث</span>
+          </a>
+        </li>
+        <li>
+          <a href="{{ url_for('confirmations_page') }}" class="nav-link {% if request.endpoint == 'confirmations_page' %}active{% endif %}">
+            <i class="fas fa-camera"></i>
+            <span>صور التأكيد</span>
+          </a>
+        </li>
+      </ul>
+    </nav>
+
+    <div class="sidebar-footer">
+      <div class="footer-device-info">
+        <i class="fas fa-microchip"></i>
+        <span>MedBox v2.1 (Mobile App)</span>
+      </div>
+      <div class="footer-time" id="sidebar-clock">--:--:--</div>
+    </div>
+  </aside>
+
+  <!-- ═══════════════════════════════════════════ -->
+  <!--  المنطقة الرئيسية                         -->
+  <!-- ═══════════════════════════════════════════ -->
+  <div class="main-wrapper">
+
+    <!-- الشريط العلوي (Top Bar) -->
+    <header class="topbar">
+      <div class="topbar-right">
+        <button class="sidebar-toggle" id="sidebarToggle" title="قائمة">
+          <i class="fas fa-bars"></i>
+        </button>
+        <h1 class="page-title">{% block page_title %}لوحة القيادة{% endblock %}</h1>
+      </div>
+      <div class="topbar-left">
+        <!-- زر تفعيل أو اختبار الصوت والاهتزاز -->
+        <button class="btn-alarm-test" onclick="triggerTestAlarmNow()" title="اختبار فوري لصوت الإنذار والاهتزاز">
+          <i class="fas fa-volume-up"></i>
+          <span>تجربة الإنذار والاهتزاز</span>
+        </button>
+
+        <div class="topbar-badge">
+          <i class="fas fa-circle status-dot online"></i>
+          <span>متصل</span>
+        </div>
+        <div class="topbar-badge">
+          <i class="fas fa-wifi"></i>
+          <span id="topbar-wifi">—</span>
+        </div>
+        <div class="topbar-badge">
+          <i class="fas fa-battery-three-quarters"></i>
+          <span id="topbar-battery">—</span>
+        </div>
+      </div>
+    </header>
+
+    <!-- محتوى الصفحة -->
+    <main class="page-content">
+      <!-- إشعارات النظام -->
+      <div id="toast-container"></div>
+
+      {% block content %}{% endblock %}
+    </main>
+
+    <footer class="page-footer">
+      <p>نظام علبة الدواء الذكية &copy; 2026 &mdash; هندسة تقنيات الأجهزة الطبية</p>
+    </footer>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════ -->
+  <!--  شاشة الإنذار الطبي الطارئ (صوت عالي + اهتزاز)     -->
+  <!--  لن تختفي حتى تلتقط صورة الدواء بنجاح            -->
+  <!-- ═══════════════════════════════════════════════════ -->
+  <div class="emergency-alarm-overlay" id="emergencyAlarmOverlay">
+    <div class="emergency-alarm-box">
+      <div class="emergency-alarm-header">
+        <div class="emergency-siren-icon pulse-alarm">
+          <i class="fas fa-bell"></i>
+        </div>
+        <h2 class="alarm-title">🚨 حان وقت تناول الدواء! 🚨</h2>
+        <p class="emergency-alarm-subtitle">إنذار صوتي متواصل واهتزاز للجوال قيد التشغيل</p>
+      </div>
+
+      <div class="emergency-alarm-details">
+        <div class="emergency-detail-row">
+          <span><i class="fas fa-box-open"></i> الحجرة:</span>
+          <strong id="emergencyChamberNum">الحجرة 1</strong>
+        </div>
+        <div class="emergency-detail-row">
+          <span><i class="fas fa-pills"></i> الدواء والجرعة:</span>
+          <strong id="emergencyMedicineInfo">باراسيتامول 500mg</strong>
+        </div>
+      </div>
+
+      <div class="emergency-alarm-warning">
+        <i class="fas fa-exclamation-triangle"></i>
+        <span><strong>تنبيه إلزامي:</strong> لن يتوقف الصوت والاهتزاز حتى تلتقط صورة واضحة لحبة الدواء ويتم التحقق منها!</span>
+      </div>
+
+      <!-- منطقة الكاميرا الإلزامية لإيقاف الإنذار -->
+      <div class="emergency-camera-section">
+        <div class="camera-video-wrap">
+          <video id="emergencyVideo" autoplay playsinline></video>
+          <canvas id="emergencyCanvas" style="display:none;"></canvas>
+          <div class="camera-scan-line"></div>
+          <div class="captured-badge" id="emergencyCapturedBadge">
+            <i class="fas fa-check-circle"></i> تم التقاط صورة الدواء
+          </div>
+        </div>
+
+        <div class="emergency-camera-actions">
+          <button class="btn btn-capture-large" id="btnEmergencyCapture" onclick="captureEmergencyPhoto()">
+            <i class="fas fa-camera"></i> التقاط صورة الدواء الآن
+          </button>
+          <button class="btn btn-retake" id="btnEmergencyRetake" onclick="retakeEmergencyPhoto()">
+            <i class="fas fa-redo"></i> إعادة التقاط
+          </button>
+          <button class="btn btn-confirm-emergency" id="btnEmergencySubmit" onclick="submitEmergencyConfirmation()">
+            <i class="fas fa-check-circle"></i> تأكيد الجرعة وإيقاف الصوت والاهتزاز ✓
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="{{ url_for('static', filename='script.js') }}"></script>
+  {% block extra_js %}{% endblock %}
+</body>
+</html>
